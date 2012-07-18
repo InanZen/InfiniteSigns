@@ -23,6 +23,7 @@ namespace InfiniteSigns
         public bool[] SignNum = new bool[256];
         public static event Action<SignEventArgs> SignEdit;
         public static event Action<SignEventArgs> SignKill;
+        public static event Action<SignEventArgs> SignHit;
         public static event Action<SignEventArgs> SignRead;
         public override string Author
         {
@@ -92,6 +93,24 @@ namespace InfiniteSigns
                             if (X < 0 || Y < 0 || X >= Main.maxTilesX || Y >= Main.maxTilesY)
                             {
                                 return;
+                            }
+                            if (e.Msg.readBuffer[e.Index] == 0 && Main.tile[X, Y].IsSign())
+                            {                                
+                                if (SignHit != null)
+                                {
+                                    Sign sign = null;
+                                    var signPos = Sign.GetSign(X, Y);
+                                    using (QueryResult reader = Database.QueryReader("SELECT Account, Text FROM Signs WHERE X = @0 AND Y = @1 AND WorldID = @2", signPos.X, signPos.Y, Main.worldID))
+                                    {
+                                        if (reader.Read())                                        
+                                            sign = new Sign { account = reader.Get<string>("Account"), text = reader.Get<string>("Text") };                                        
+                                    }
+                                    if (sign != null)
+                                    {
+                                        SignEventArgs signargs = new SignEventArgs(X, Y, sign.text, sign.account);
+                                        SignHit(signargs);
+                                    }
+                                }
                             }
                             if (e.Msg.readBuffer[e.Index] == 0 && e.Msg.readBuffer[e.Index + 9] == 0)
                             {
@@ -239,7 +258,6 @@ namespace InfiniteSigns
         void KillSign(int X, int Y, int plr)
         {
             TSPlayer player = TShock.Players[plr];
-
             bool[] attached = new bool[4];
             bool[] attachedNext = new bool[4];
             List<Point> positions = new List<Point>();
